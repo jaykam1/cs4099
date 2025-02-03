@@ -6,12 +6,20 @@ import numpy as np
 import scipy.ndimage as ndimage
 
 class NoduleDataset(Dataset):
-    def __init__(self, nodule_dir, labels_file, patient_ids, augmentation = False):
+    def __init__(self, nodule_dir, labels_file, patient_ids, augmentation = False, difficulty = "none"):
         self.nodule_dir = nodule_dir
         self.labels_df = pd.read_csv(labels_file)
         self.labels_df = self.labels_df[self.labels_df['patient_id'].isin(patient_ids)]
+
+        if difficulty == "easy":
+            self.labels_df = self.labels_df[self.labels_df['malignancy'].isin([1, 5])]
+        elif difficulty == "hard":
+            self.labels_df = self.labels_df[self.labels_df['malignancy'].isin([2, 4])]
+        
         self.nodules = self.labels_df['nodule_id'].values
         self.labels = self.labels_df['malignancy_truth'].values
+
+        
         self.augmentation = augmentation 
 
         self.angles = [45, 90, 135, 180, 225, 270, 315]

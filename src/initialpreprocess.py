@@ -20,9 +20,10 @@ def convert_to_hu(vol, slope, intercept):
 def bound_hu(vol):
     return np.clip(vol, -1000, 400)
 
-def scale_hu(vol):
-    vol = 255 / 1400 * (vol - 400) +  255
-    return vol.astype(int)
+def normalise_hu(vol):
+    mean = np.mean(vol)
+    std = np.std(vol)
+    return (vol - mean) / std if std != 0 else vol
 
 def average_centroid(annotations):
     centroids = [annotation.centroid for annotation in annotations]
@@ -90,8 +91,9 @@ def get_all_nodules():
         
         hu_vol = convert_to_hu(vol, slope, intercept)
         hu_bound = bound_hu(hu_vol)
+        hu_normalised = normalise_hu(hu_bound)
         
-        nodules.append((hu_bound, patient_id, malignancy, malignancy_truth)) 
+        nodules.append((hu_normalised, patient_id, malignancy, malignancy_truth)) 
         
     return nodules
 
