@@ -32,6 +32,7 @@ fsspec==2024.10.0
 greenlet==3.1.1
 HeapDict==1.0.1
 hsluv==5.0.4
+huggingface-hub==0.29.3
 idna==3.10
 imageio==2.36.0
 imagesize==1.4.1
