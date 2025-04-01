@@ -5,7 +5,7 @@ import pylidc as pl
 
 
 '''
-Plot a bar chart showing distribution of nodule sizes
+Plots a bar chart showing distribution of nodule sizes
 <5 mm - 
 5-12mm - most difficult to classify
 >12mm
@@ -30,7 +30,7 @@ def plot_nodule_size_distribution():
     plt.savefig('distributionplots/nodule_size_distribution.png')
 
 '''
-Plot a bar chart showing distribution of nodule types
+Plots a bar chart showing distribution of nodule types
 Benign
 Malignant
 '''
@@ -49,6 +49,14 @@ def plot_nodule_type_distribution():
     plt.ylabel('Number of Nodules')
     plt.savefig('distributionplots/nodule_type_distribution.png')
 
+
+'''
+Gets the nodules from the dataset that 
+- are less than 30mm in size
+- have at least 3 annotations (3 radiologists agree that it is a nodule)
+- have a median malignancy rating that is not 3
+- have a maximum bounding box size of less than 32mm
+'''
 def get_nodules():
     df = pd.read_csv('list3.2.csv')
     query = pl.query(pl.Scan)
