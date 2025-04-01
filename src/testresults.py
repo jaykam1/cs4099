@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import gc
 
+# Takes a string of the architecture and converts it to a list of lists
 def archstring_to_architecture(arch_string):
     arch_string_one = [block.split() for block in arch_string.replace('[', '').replace(']', '').replace(',', '').split('-')]
     architecture = []
@@ -20,15 +21,18 @@ def archstring_to_architecture(arch_string):
         architecture.append(layers)
     return architecture
 
+# Counts the number of parameters in a model
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-
+# This function takes a list of architectures and a test loader, loads the models, and returns the predictions and labels on test set
 def test_system(architectures, test_loader):
 
+    # Initialise lists to store predictions and labels
     all_predictions = [[] for _ in range(len(architectures))]
     all_labels = []
 
+    # Without updating gradients
     with torch.no_grad():
         for i, arch_string in enumerate(architectures):
             checkpoint_path = f"finaltrain_savedmodels/{arch_string}checkpoint.pth"
@@ -37,7 +41,8 @@ def test_system(architectures, test_loader):
                 sys.exit(1)
 
             arch_string = arch_string[:-4]
-
+            
+            # Loop through each architecture and load the model
             architecture = archstring_to_architecture(arch_string)
             model = LungNet(architecture).cuda()
 
@@ -52,9 +57,11 @@ def test_system(architectures, test_loader):
 
             model_predictions = []
 
+            # Loop through the test data
             for inputs, labels in test_loader:
                 inputs, labels = inputs.cuda(), labels.cuda()
 
+                # Get predictions from the model
                 outputs = model(inputs)
                 _, predictions = torch.max(outputs, 1)
                 model_predictions.extend(predictions.cpu().numpy())
@@ -68,7 +75,7 @@ def test_system(architectures, test_loader):
             gc.collect()
     return all_predictions, all_labels
 
-
+# This function calculates the accuracy, sensitivity, specificity, precision, and F1 score for a single set of predictions and labels
 def calculate_single_metrics(predictions, labels):
     tp = 0
     tn = 0
@@ -93,7 +100,7 @@ def calculate_single_metrics(predictions, labels):
     return acc, sens, spec, prec, f1
                 
 
-# Load the test data
+# These are the nine architectures which we are using
 architectures = ['[16, 16, 16]-[16, 64, 64, 128]-[128]', 
                  '[32]-[128, 128, 128, 128, 128]-[128, 128]', 
                  #'[4, 8, 16, 16, 16]-[16]-[16, 32, 32]', final ensenble only uses 9 this one has lowest validation accuracy so removed
@@ -105,7 +112,7 @@ architectures = ['[16, 16, 16]-[16, 64, 64, 128]-[128]',
                  '[64]-[64, 64, 128]-[128, 128]',
                  '[4, 8, 8]-[8]-[8, 16, 16, 128]']
 
-#Get best epoch for each model from the last 150 epochs
+#Get best epoch for each model from the last 150 epochs for the above architectures
 def get_best_epoch_architecture(architectures):
     best_epoch_architectures = []
     for arch_string in architectures:
@@ -137,12 +144,16 @@ best_epoch_architectures = ['[16, 16, 16]-[16, 64, 64, 128]-[128]_550',
 
 folds = get_folds()
 test_ids = folds[9]
+# Load the test dataset
 test_dataset = NoduleDataset(nodule_dir="noduledataset2", labels_file="noduledataset2/labels.csv", patient_ids=test_ids)
 test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+# Get all predictions from model outputs and labels
 all_predictions, all_labels = test_system(best_epoch_architectures, test_loader)
 
+# Ensure all predictions and labels are the same length
 assert all(len(pred) == len(all_labels) for pred in all_predictions), "Prediction and label dimensions are off"
 
+# Obtain a prediction from an ensemble model (of all 9 predictions) as well 
 ensemble_predictions = []
 for i in range(len(all_labels)):
     positive_decisions = 0
