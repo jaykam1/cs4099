@@ -2,6 +2,8 @@ from initialpreprocess import get_all_nodules
 import numpy as np
 import sys
 
+# Saves all individual nodules as npy files into the specified directory
+# Also creates a labels.csv file containing nodule_id, patient_id, malignancy, and malignancy_truth
 def save_nodules(dir):
     nodules = get_all_nodules()
     f = open(dir + '/labels.csv', 'w')
