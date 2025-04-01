@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from net_sphere import AngleLinear
 
+# A 3d convolutional layer with batch normalization and ReLU activation
 def conv3d_batchnorm_relu(in_channels, out_channels, kernel_size, stride, padding, dilation=1, groups=1, bias=True):
     return nn.Sequential(
         nn.Conv3d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias),
@@ -14,10 +15,12 @@ def conv3d_batchnorm_relu(in_channels, out_channels, kernel_size, stride, paddin
         nn.ReLU()
     )
 
+# A 3d convolutional layer with batch normalization, ReLU activation and padding to downsample the input
 def conv3d_with_pooling(in_channels, kernel_size, stride=1, dilation=1, groups=1, bias=False):
     padding = kernel_size // 2
     return conv3d_batchnorm_relu(in_channels, in_channels, kernel_size, stride, padding, dilation, groups, bias)
 
+# A residual block with two 3d convolutional layers and a skip connection
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ResidualBlock, self).__init__()
@@ -32,19 +35,24 @@ class ResidualBlock(nn.Module):
         y = y + z
         return y
     
+# An object of this class is a whole network with a series of residual blocks
 class LungNet(nn.Module):
     def __init__(self, architecture):
         super(LungNet, self).__init__()
+        # First two layers are constant with channels 1->4 and 4->4 
         self.conv1 = conv3d_batchnorm_relu(in_channels = 1, out_channels = 4, kernel_size=3, stride=1, padding=1)
         self.conv2 = conv3d_batchnorm_relu(in_channels = 4, out_channels = 4, kernel_size=3, stride=1, padding=1)
         self.architecture = architecture
+        # Keeps track of the last channel size
         self.last_channel = 4
         layers = []
+        # Convertes architecture (a list of lists) into a series of layers
         for stage in architecture:
             layers.append(conv3d_with_pooling(self.last_channel, kernel_size=3, stride=2))
             for channel in stage:
                 layers.append(ResidualBlock(self.last_channel, channel))
                 self.last_channel = channel
+        # Creates architecture of all layers followed by pooling layer and fully connected layer
         self.layers = nn.Sequential(*layers)
         self.pool = nn.AvgPool3d(kernel_size=4, stride=4)
         self.fc = AngleLinear(in_features=self.last_channel, out_features=2)
