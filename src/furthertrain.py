@@ -13,6 +13,9 @@ from torch.autograd import Variable
 import os
 import sys
 
+'''
+Function which takes in a string of lists of lists (an architecture) and returns a list of lists
+'''
 def archstring_to_architecture(arch_string):
     arch_string_one = [block.split() for block in arch_string.replace('[', '').replace(']', '').replace(',', '').split('-')]
     architecture = []
@@ -27,12 +30,13 @@ def archstring_to_architecture(arch_string):
 The purpose of this program is to train the 10 best architectures from the NAS search
 for 700 epochs each. 
 '''
-
 def train_model(model, num_epochs, criterion, optimizer, name):
 
+    # Load the validation dataset
     val_dataset = NoduleDataset(nodule_dir="noduledataset2", labels_file="noduledataset2/labels.csv", patient_ids=val_ids)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
     
+    # Arrays to store metrics for training data
     loss_values= []
     accuracy_values = []
     sensitivity_values = []
@@ -40,6 +44,7 @@ def train_model(model, num_epochs, criterion, optimizer, name):
     precision_values = []
     f1_values = []
 
+    # Arrays to store metrics for validation data
     val_loss_values = []
     val_accuracy_values = []
     val_sensitivity_values = []
@@ -47,17 +52,16 @@ def train_model(model, num_epochs, criterion, optimizer, name):
     val_precision_values = []
     val_f1_values = []
 
+    # Store TP, TN, FP, FN values for last epoch
     last_epoch_tp = 0
     last_epoch_tn = 0
     last_epoch_fp = 0
     last_epoch_fn = 0
 
-    #Make comments around funcitons and loops
-    
-    
+    # Training loop, iterates over number of epochs
     for epoch in range(num_epochs):
         '''
-        Changed curriculum learning so still get some hard examples in the first half of training
+        Changed curriculum learning strategy so still get some hard examples in the first half of training
         and get some easy examples in the second half of training
         This is to prevent model from overfitting to easy examples in the first half of training
         and to prevent model from overfitting to hard examples in the second half of training
@@ -69,12 +73,14 @@ def train_model(model, num_epochs, criterion, optimizer, name):
         else:
             difficulty = "easy" if random.random() < 0.1 else "hard"
 
+        # Load the training dataset
         train_dataset = NoduleDataset(nodule_dir="noduledataset2", labels_file="noduledataset2/labels.csv", patient_ids=train_ids, augmentation=True, difficulty=difficulty)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
+        # Set the model to training mode
         model.train()
 
-        # Training Metrics
+        # Per epoch training metrics
         running_loss = 0.0
         tp = 0
         tn = 0
@@ -82,20 +88,27 @@ def train_model(model, num_epochs, criterion, optimizer, name):
         fn = 0
         total_train = 0.0
 
+        # Iterate over the training data
         for inputs, labels in train_loader:
+            # Move data to GPU
             inputs, labels = inputs.cuda(), labels.cuda()
         
             optimizer.zero_grad()
+
+            # Forward pass
             inputs, labels = Variable(inputs), Variable(labels)
             outputs = model(inputs)
             
             loss = criterion(outputs, labels.long())
+            # Backward pass
             loss.backward()
             
             optimizer.step()
             
+            # Update running loss
             running_loss += loss.item() * inputs.size(0)
 
+            # Calculate TP, TN, FP, FN for current batch
             _, predictions = torch.max(outputs, 1)
             
             tp += ((predictions == 1) & (labels == 1)).sum().item()
@@ -103,10 +116,12 @@ def train_model(model, num_epochs, criterion, optimizer, name):
             fp += ((predictions == 1) & (labels == 0)).sum().item()
             fn += ((predictions == 0) & (labels == 1)).sum().item()
             
+            # Ensure correct counting of TP, TN, FP, FN
             total_train += labels.size(0)
             if (tp + tn + fp + fn != total_train):
                 print("Incorrectly counting tp/tn/fp/fn's")
 
+        # Calculate metrics for this epoch
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0.0
         epoch_sens = tp / (tp + fn) if (tp + fn) > 0 else 0.0
@@ -114,6 +129,7 @@ def train_model(model, num_epochs, criterion, optimizer, name):
         epoch_prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         epoch_f1 = (2 * tp) / ((2 * tp) + fp + fn) if ((2 * tp) + fp + fn) > 0 else 0.0
 
+        # Append metrics to corresponding lists
         loss_values.append(epoch_loss)
         accuracy_values.append(epoch_acc)
         sensitivity_values.append(epoch_sens)
@@ -123,6 +139,7 @@ def train_model(model, num_epochs, criterion, optimizer, name):
 
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.4f}, Sensitivity: {epoch_sens:.4f}, Specificity: {epoch_spec:.4f}, Precision: {epoch_prec:.4f}, F1: {epoch_f1:.4f}")
         
+        # Set model to evaluation mode for validation
         model.eval()
         
         # Validation metrics        
@@ -133,6 +150,7 @@ def train_model(model, num_epochs, criterion, optimizer, name):
         val_fn = 0.0
         total_val = 0.0
 
+        # Iterate over the validation data, without updating gradients
         with torch.no_grad():
             for inputs, labels in val_loader:
                 inputs, labels = inputs.cuda(), labels.cuda()
@@ -143,15 +161,18 @@ def train_model(model, num_epochs, criterion, optimizer, name):
 
                 _, predictions = torch.max(outputs, 1)
 
+                # Calculate validation TP, TN, FP, FN for current batch
                 val_tp += ((predictions == 1) & (labels == 1)).sum().item()
                 val_tn += ((predictions == 0) & (labels == 0)).sum().item()
                 val_fp += ((predictions == 1) & (labels == 0)).sum().item()
                 val_fn += ((predictions == 0) & (labels == 1)).sum().item()
                 
+                # Ensure correct counting of validation TP, TN, FP, FN
                 total_val += labels.size(0)
                 if (val_tp + val_tn + val_fp + val_fn != total_val):
                     print("Incorrectly counting validations tp/tn/fp/fn's")
         
+        # Calculate validation metrics for this epoch
         val_epoch_loss = val_loss / len(val_loader.dataset)
         val_epoch_acc = (val_tp + val_tn) / (val_tp + val_tn + val_fp + val_fn) if (val_tp + val_tn + val_fp + val_fn) > 0 else 0.0
         val_epoch_sens = val_tp / (val_tp + val_fn) if (val_tp + val_fn) > 0 else 0.0
@@ -159,6 +180,7 @@ def train_model(model, num_epochs, criterion, optimizer, name):
         val_epoch_prec = val_tp / (val_tp + val_fp) if (val_tp + val_fp) > 0 else 0.0
         val_epoch_f1 = (2 * val_tp) / ((2 * val_tp) + val_fp + val_fn) if ((2 * val_tp) + val_fp + val_fn) > 0 else 0.0
 
+        # Append validation metrics to corresponding lists
         val_loss_values.append(val_epoch_loss)
         val_accuracy_values.append(val_epoch_acc)
         val_sensitivity_values.append(val_epoch_sens)
@@ -169,12 +191,14 @@ def train_model(model, num_epochs, criterion, optimizer, name):
         print(f"Validation Loss: {val_epoch_loss:.4f}, Accuracy: {val_epoch_acc:.4f}, Sensitivity: {val_epoch_sens:.4f}, Specificity: {val_epoch_spec:.4f}, Precision: {val_epoch_prec:.4f}, F1: {val_epoch_f1:.4f}\n")
         torch.cuda.empty_cache()
 
+        # If on the last epoch, save the TP, TN, FP, FN values
         if epoch == num_epochs - 1:
             last_epoch_tp = val_tp
             last_epoch_tn = val_tn
             last_epoch_fp = val_fp
             last_epoch_fn = val_fn
 
+        # Save model checkpoints and state every 50 epochs
         if (epoch + 1) % 50 == 0 or epoch == num_epochs - 1:
             checkpoint = {
                 'epoch': epoch + 1,
@@ -184,6 +208,7 @@ def train_model(model, num_epochs, criterion, optimizer, name):
             }
             torch.save(checkpoint, f"finaltrain_savedmodels/{name}_{epoch+1}checkpoint.pth")
 
+    # Plot confusion matrices and metric plots
     validation_confusion_matrix = np.array([[int(last_epoch_tp), int(last_epoch_fn)], [int(last_epoch_fp), int(last_epoch_tn)]])
     plot_confusion_matrix(validation_confusion_matrix, "{}_Validation_Confusion_Matrix_{}".format(name, num_epochs), name, output_folder="finaltrain_plots")
 
@@ -212,12 +237,13 @@ def train_model(model, num_epochs, criterion, optimizer, name):
     })
     metrics.to_csv(f"finaltrain_savedmetrics/{name}_metrics.csv", index=False)
 
+    # Free up memory after each model
     del train_loader, val_loader, train_dataset, val_dataset
     gc.collect()
     torch.cuda.empty_cache()
  
 
-# SPLIT DATA INTO TRAIN AND VALIDATION HERE
+# SPLIT DATA INTO TRAIN, VALIDATION, and TEST HERE
 torch.cuda.empty_cache()
 torch.cuda.ipc_collect()
 folds = get_folds()
@@ -229,6 +255,7 @@ batch_size = 8
 lr = 0.0002
 epoch = 700
 
+# List of ten best architectures from NAS search for further training
 architectures = ['[16, 16, 16]-[16, 64, 64, 128]-[128]', 
                  '[32]-[128, 128, 128, 128, 128]-[128, 128]', 
                  '[4, 8, 16, 16, 16]-[16]-[16, 32, 32]', 
@@ -240,16 +267,18 @@ architectures = ['[16, 16, 16]-[16, 64, 64, 128]-[128]',
                  '[64]-[64, 64, 128]-[128, 128]', 
                  '[4, 8, 8]-[8]-[8, 16, 16, 128]']
 
+# Loop through each of the ten chosen architectures
 for arch_string in architectures:
     checkpoint_path = f"savedmodels/model-{arch_string}_checkpoint.pth"
     if not os.path.exists(checkpoint_path):
         print("Cant find model checkpoint")
         sys.exit(1)
 
+    # Create the model with the architecture 
     architecture = archstring_to_architecture(arch_string)
     model = LungNet(architecture).cuda()
 
-    # Load the checkpoint
+    # Load the checkpoint for that model, so can proceed from the 20th epoch where left off
     checkpoint = torch.load(checkpoint_path)
     model.load_state_dict(checkpoint['model_state_dict'])
     start_epoch = checkpoint.get('epoch', 20)
@@ -258,6 +287,8 @@ for arch_string in architectures:
     criterion = nn.CrossEntropyLoss()
 
     print(f"Training model with architecture: {arch_string} from epoch {start_epoch}\n")
+    
+    # Train the model 
     train_model(model, epoch, criterion, optimiser, arch_string)
 
     del model, optimiser, criterion
