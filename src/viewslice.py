@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import os
 from initialpreprocess import get_all_nodules
 
+
+# Takes a 3d image and a slice number and saves a 2d image of the slice
 def view_slice(image, slice_num, name):
     slice_2d = sitk.GetArrayViewFromImage(image)[slice_num, :, :]
     plt.imshow(slice_2d, cmap='gray')
@@ -10,7 +12,7 @@ def view_slice(image, slice_num, name):
     plt.savefig(name)
 
 
-# SHOW A SLICE OF A 3D IMAGE FROM A DICOM SERIES
+# TO SHOW A SLICE OF A 3D IMAGE FROM A DICOM SERIES
 """
 image_folder = "../../dataset/TCIA_LIDC-IDRI_20200921/LIDC-IDRI/LIDC-IDRI-0079/01-01-2000-37490/3278.000000-05159"
 reader = sitk.ImageSeriesReader()
@@ -19,7 +21,7 @@ reader.SetFileNames(dicom_names)
 image_3d = reader.Execute()
 """
 
-# SHOW A SLICE OF A 3D IMAGE FROM A NIFTI FILE
+# TO SHOW A SLICE OF A 3D IMAGE FROM A NIFTI FILE
 
 #test_path = "nodule_LIDC-IDRI-0079_26.nii"
 #test_path = "nodules/nodule_LIDC-IDRI-0874_nodule1.nii"
@@ -28,7 +30,7 @@ image_3d = reader.Execute()
 nodules = get_all_nodules()
 nodule_tup = nodules[0]
 
-
+# saves nodule image slices in the nodule images directory
 for index, nodule_tup in enumerate(nodules):
     nodule = nodule_tup[0]
     malignancy = nodule_tup[1]
