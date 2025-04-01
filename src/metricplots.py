@@ -2,6 +2,11 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import os
 
+'''
+This function saves a plot for the given metric data into the plots directory
+Metrics this is used for are Accuracy, Sensitivity, Specificity, Precision, F1 Score
+Training data represented in blue and validation data in orange
+'''
 def save_plot(metric_name, metric_list_train, metric_list_val, plot_name, model_name, output_folder = "plots"):
     
     folder_path = os.path.join(output_folder, model_name)
@@ -22,7 +27,10 @@ def save_plot(metric_name, metric_list_train, metric_list_val, plot_name, model_
     plt.savefig(output_path)
     plt.close()
 
-
+'''
+This function saves a confusion matrix plot for the given confusion matrix data into the plots directory
+Confusion matrix data is a 2x2 array with structure - Benign , Malignant and Predicted, Ground Truth
+'''
 def plot_confusion_matrix(confusion_matrix, title, model_name, output_folder = "plots"):
 
     folder_path = os.path.join(output_folder, model_name)
