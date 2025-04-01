@@ -61,7 +61,7 @@ def get_nodules():
     df = pd.read_csv('list3.2.csv')
     query = pl.query(pl.Scan)
     patient_to_scan = patient_to_scan_id(query)
-    # Nodules of form (size, malignancy_truth)
+    # Nodules of form (nodule_volume, patient_id, malignancy_rating, malignancy_truth)
     nodules = []
     for index, row in df.iterrows():
         if row['eq. diam.'] > 30:
